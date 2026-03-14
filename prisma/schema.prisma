@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ==================== CORE MODELS ====================
+
+model Region {
+  id        String    @id @default(cuid())
+  name      String
+  code      String    @unique
+  continent String
+  countries Country[]
+  trends    TrendRegion[]
+  suppliers Supplier[]
+  hubs      ProductionHub[]
+}
+
+model Country {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  regionId   String
+  region     Region   @relation(fields: [regionId], references: [id])
+  compliance CountryCompliance?
+}
+
+// ==================== TREND MODELS ====================
+
+model Trend {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String
+  momentum    String
+  trendScore  Int
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  regions     TrendRegion[]
+  ageGroups   TrendAgeGroup[]
+  lifecycle   LifecycleTrend[]
+  dataPoints  TrendDataPoint[]
+}
+
+model TrendRegion {
+  id         String @id @default(cuid())
+  trendId    String
+  regionId   String
+  popularity Int
+  trend      Trend  @relation(fields: [trendId], references: [id])
+  region     Region @relation(fields: [regionId], references: [id])
+
+  @@unique([trendId, regionId])
+}
+
+model TrendAgeGroup {
+  id         String @id @default(cuid())
+  trendId    String
+  ageGroup   String
+  popularity Int
+  trend      Trend  @relation(fields: [trendId], references: [id])
+
+  @@unique([trendId, ageGroup])
+}
+
+model TrendDataPoint {
+  id        String   @id @default(cuid())
+  trendId   String
+  date      DateTime
+  value     Float
+  trend     Trend    @relation(fields: [trendId], references: [id])
+}
+
+// ==================== LIFECYCLE MODELS ====================
+
+model LifecycleStage {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  displayName String
+  description String
+  order       Int
+  trends      LifecycleTrend[]
+}
+
+model LifecycleTrend {
+  id        String         @id @default(cuid())
+  stageId   String
+  trendId   String
+  insight   String
+  stage     LifecycleStage @relation(fields: [stageId], references: [id])
+  trend     Trend          @relation(fields: [trendId], references: [id])
+}
+
+// ==================== SOURCING MODELS ====================
+
+model Supplier {
+  id             String  @id @default(cuid())
+  name           String
+  countryName    String
+  regionId       String
+  type           String
+  capabilities   String
+  minOrderQty    Int
+  leadTimeDays   Int
+  costTier       String
+  rating         Float
+  website        String?
+  description    String?
+  region         Region  @relation(fields: [regionId], references: [id])
+  ethicalScore   EthicalScore?
+  certifications SupplierCertification[]
+}
+
+model ProductionHub {
+  id                  String @id @default(cuid())
+  name                String
+  countryName         String
+  regionId            String
+  specialization      String
+  laborCostIndex      Float
+  infrastructureScore Float
+  description         String
+  yearlyOutput        String?
+  region              Region @relation(fields: [regionId], references: [id])
+}
+
+// ==================== ETHICS MODELS ====================
+
+model EthicalScore {
+  id                  String  @id @default(cuid())
+  entityType          String
+  entityId            String
+  sustainabilityScore Float
+  laborScore          Float
+  transparencyScore   Float
+  overallScore        Float
+  supplierId          String? @unique
+  supplier            Supplier? @relation(fields: [supplierId], references: [id])
+}
+
+model Certification {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String
+  category    String
+  issuingBody String
+  suppliers   SupplierCertification[]
+}
+
+model SupplierCertification {
+  id              String        @id @default(cuid())
+  supplierId      String
+  certificationId String
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+  certification   Certification @relation(fields: [certificationId], references: [id])
+
+  @@unique([supplierId, certificationId])
+}
+
+model CountryCompliance {
+  id               String @id @default(cuid())
+  countryId        String @unique
+  laborLawSummary  String
+  minimumWage      String
+  workingHoursLimit String
+  riskLevel        String
+  country          Country @relation(fields: [countryId], references: [id])
+}
+
+model Material {
+  id                  String @id @default(cuid())
+  name                String @unique
+  category            String
+  environmentalImpact String
+  renewability        String
+  carbonFootprint     Float
+  waterUsage          Float
+  description         String
+  alternatives        String?
+}
+
+// ==================== AGGREGATION MODELS ====================
+
+model DataSource {
+  id          String    @id @default(cuid())
+  name        String
+  type        String
+  url         String
+  lastFetched DateTime?
+  status      String
+  dataPoints  RawDataPoint[]
+}
+
+model RawDataPoint {
+  id        String     @id @default(cuid())
+  sourceId  String
+  content   String
+  fetchedAt DateTime   @default(now())
+  processed Boolean    @default(false)
+  source    DataSource @relation(fields: [sourceId], references: [id])
+}
